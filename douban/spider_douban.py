@@ -9,16 +9,6 @@ from lxml import html,etree
 import urllib.request
 import re
 
-# 获取网页源码
-url = 'https://book.douban.com/review/best/'
-request_result = requests.get(url)
-response_text = request_result.text
-request_result = urllib.request.urlopen(url)
-# print(request_result)
-
-five_stars_xpath = ".//header[@class='main-hd']/span[@class='allstar50 main-title-rating']/text()"
-
-
 # 解析网页源码
 def parse_(request_result):
     page = html.parse(request_result)
@@ -44,43 +34,56 @@ def parse_(request_result):
         with open('douban.txt','a',encoding='utf8') as f:
             f.write(name+'\t'+time+'\t'+abstract+'\t'+short_content+'\t'+useful_count+'\t'+useless_count+'\t'+reply+'\n')
             print(name)
-        # print(short_content)
-        # print("name: "+name[0])
-        # print("time: "+time[0])
-        # print("abstract: "+abstract[0])
-        # print("short_content: "+)
-        # print("useful_count: "+useful_count[0].strip())
-        # print("useless_count: "+useless_count[0].strip())
-        # print("reply: "+reply[0])
-        # print("star: "+star)
-parse_(request_result)
+# parse_(request_result)
 
-def get_short_content(response_text):
-    pattern = '<div class="short-content">.*(?=&nbsp)'
-    print(response_text)
+# 使用正则表达式解析网页源码
+def regex_parse(response_text):
+    '''
+    对一个网页进行解析，提取其中有用信息并写入result.txt
+    Args:
+        response_text: str, 网页源码
+    '''
     response_text = re.sub("\n", "--", response_text)
-    # print(response_text)
-    short_contents = re.search(pattern, response_text)
-    print(short_contents.group())
-# get_short_content(response_text)
-
+    response_text = response_text.split('<div xmlns:v=')
+    del response_text[0]
+    for text in response_text:
+        book_name = re.findall('<img alt="(.*?)"',text)[0].strip()
+        name = re.findall('class="name">(.*?)</a>', text)[0].strip()
+        time = re.findall('class="main-meta">(.*?)</span>', text)[0].strip()
+        try:
+            star = re.findall('<span property="v:rating" class="allstar(.*?)main', text)[0].strip()
+            star = int(star)/10
+        except:
+            star = 0
+        review = re.findall('<h2><a(.*?)</a>', text)[0].strip().split('>')[1]
+        reply = re.findall('class="reply">(.*?)回应</a>', text)[0].strip()
+        try:
+            tip = re.findall('<p class="spoiler-tip">(.*?)</p>', text)[0].strip()
+            content = re.findall('<p class="spoiler-tip">这篇书评可能有关键情节透露</p>(.*?)&nbsp', text)[0].strip('- ')
+        except:
+            tip = ''
+            content = re.findall('<div class="short-content">(.*?)&nbsp', text)[0].strip('- ')
+        with open('./douban/regex_result.txt', 'a', encoding='utf8') as f:
+            f.write(book_name+'\t'+name+'\t'+time+'\t'+str(star)+'\t'+review+'\t'+tip+'\t'+content+'\t'+reply+'\n')
 
 # 获取下一页的link
 def get_next_page(text):
-    pass
+    base_url = 'https://book.douban.com{}'
+    url = re.findall('<link rel="next" href="(.*?)"/>', text)[0]
+    next_page_url = base_url.format(url)
+    return next_page_url
 
-#print(response_text)
-# response_text = """<div id="review_9593753_short" class="review-short" data-rid="9593753">
-#                     <div class="short-content">
-#                             <p class="spoiler-tip">这篇书评可能有关键情节透露</p>
+next_page = 'https://book.douban.com/review/best/'
 
-#                         在前一段时间，我看到好多友邻都在探讨国内外名著的“三观”问题，当我看到这一话题时，第一个反应就是《简·爱》这部小说肯定会中枪，点开相关的帖子和话题一看，《简·爱》的“三观”讨论果然名列前茅。 比如“绿茶女主套路渣男一般的高帅富男主”、“原配家属大闹小三和渣男...
-
-#                         &nbsp;(<a href="javascript:;" id="toggle-9593753-copy" class="unfold" title="展开">展开</a>)
-#                     </div>"""
-# response_text.replace('\n', '==')
-# response_text = re.sub("\n", "--", response_text)
-
-# pattern1 = re.findall('<p class="spoiler-tip">这篇书评可能有关键情节透露</p>(.*?)&nbsp', response_text)
-# pattern2 = re.findall('<p class="spoiler-tip">这篇书评可能有关键情节透露</p>(.*?)&nbsp', response_text)
-# print(pattern1, len(pattern1))
+while next_page:
+    # 获取网页源码
+    request_result = requests.get(next_page)
+    response_text = request_result.text
+    # 对当前页进行解析
+    regex_parse(response_text)
+    # 获取下一页的链接
+    try:
+        next_page = get_next_page(response_text)
+    except:
+        break
+    print(next_page)

@@ -1,6 +1,6 @@
 ''' created by xuhong 2018/10/16
 完成采集豆瓣图书最受欢迎书评的功能，并对采集到的内容做解析，存储至txt中
-采集到的字段包括：用户ID，书评发布时间，书评简介，书评内容，认为有用人数，认为无用人数，回复人数
+采集到的字段包括：书名，用户ID，书评发布时间，评分，书评简介，书评内容，回复人数
 要采集的网页链接 https://book.douban.com/review/best/
 '''
 
@@ -9,7 +9,7 @@ from lxml import html,etree
 import urllib.request
 import re
 
-# 解析网页源码
+# Xpath解析网页源码
 def parse_(request_result):
     page = html.parse(request_result)
     groups = page.xpath("//div[@class='review-list chart ']/div")
@@ -36,7 +36,7 @@ def parse_(request_result):
             print(name)
 # parse_(request_result)
 
-# 使用正则表达式解析网页源码
+# Regex解析网页源码
 def regex_parse(response_text):
     '''
     对一个网页进行解析，提取其中有用信息并写入result.txt
@@ -50,14 +50,14 @@ def regex_parse(response_text):
         book_name = re.findall('<img alt="(.*?)"',text)[0].strip()
         name = re.findall('class="name">(.*?)</a>', text)[0].strip()
         time = re.findall('class="main-meta">(.*?)</span>', text)[0].strip()
-        try:
+        try: # 有些书评没有评分
             star = re.findall('<span property="v:rating" class="allstar(.*?)main', text)[0].strip()
             star = int(star)/10
         except:
             star = 0
         review = re.findall('<h2><a(.*?)</a>', text)[0].strip().split('>')[1]
         reply = re.findall('class="reply">(.*?)回应</a>', text)[0].strip()
-        try:
+        try: # 有些书评没有tip
             tip = re.findall('<p class="spoiler-tip">(.*?)</p>', text)[0].strip()
             content = re.findall('<p class="spoiler-tip">这篇书评可能有关键情节透露</p>(.*?)&nbsp', text)[0].strip('- ')
         except:
@@ -84,6 +84,6 @@ while next_page:
     # 获取下一页的链接
     try:
         next_page = get_next_page(response_text)
-    except:
+    except: # 没有下一页的时候跳出循环
         break
     print(next_page)
